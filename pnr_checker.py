@@ -20,9 +20,11 @@ def get_pnr_status(pnr_number):
     
     try:
         driver.get(f"https://www.confirmtkt.com/pnr-status/{pnr_number}")
-        time.sleep(5)
+        time.sleep(10)
         
         page_text = driver.find_element(By.TAG_NAME, 'body').text
+        print(f"DEBUG: Page text length: {len(page_text)}")
+        print(f"DEBUG: First 500 chars: {page_text[:500]}")
         
         result = {
             'pnr': pnr_number,
