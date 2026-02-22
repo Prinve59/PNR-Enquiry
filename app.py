@@ -9,8 +9,14 @@ class PNRResponse(BaseModel):
     pnr: str
     train_name: Optional[str] = None
     train_number: Optional[str] = None
+    origin_station: Optional[str] = None
+    origin_code: Optional[str] = None
+    dest_station: Optional[str] = None
+    dest_code: Optional[str] = None
+    date: Optional[str] = None
     status: Optional[str] = None
-    station: Optional[str] = None
+    coach: Optional[str] = None
+    seat: Optional[str] = None
 
 @app.get("/")
 def root():

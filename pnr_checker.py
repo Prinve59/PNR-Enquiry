@@ -6,6 +6,8 @@ from selenium.webdriver.chrome.service import Service
 from webdriver_manager.chrome import ChromeDriverManager
 import time
 
+import re
+
 def get_pnr_status(pnr_number):
     options = webdriver.ChromeOptions()
     options.add_argument('--headless')
@@ -20,36 +22,53 @@ def get_pnr_status(pnr_number):
         driver.get(f"https://www.confirmtkt.com/pnr-status/{pnr_number}")
         time.sleep(5)
         
+        page_text = driver.find_element(By.TAG_NAME, 'body').text
+        
         result = {
             'pnr': pnr_number,
             'train_name': None,
             'train_number': None,
+            'origin_station': None,
+            'origin_code': None,
+            'dest_station': None,
+            'dest_code': None,
+            'date': None,
             'status': None,
-            'station': None
+            'coach': None,
+            'seat': None
         }
         
-        # Get all text elements
-        all_elements = driver.find_elements(By.XPATH, "//*[string-length(text()) > 0]")
+        # Train number and name
+        train_match = re.search(r'(\d{5})\s*-\s*([A-Z\s]+EXPRESS|[A-Z\s]+)', page_text)
+        if train_match:
+            result['train_number'] = train_match.group(1)
+            result['train_name'] = train_match.group(2).strip()
         
-        for elem in all_elements:
-            text = elem.text.strip()
-            
-            # Train number and name (format: 12345 - Train Name)
-            if text and '-' in text and text[0].isdigit() and len(text.split()[0]) >= 5:
-                parts = text.split('-', 1)
-                if parts[0].strip().isdigit():
-                    result['train_number'] = parts[0].strip()
-                    result['train_name'] = parts[1].strip() if len(parts) > 1 else None
-            
-            # Status (CNF, RAC, WL)
-            if 'CNF' in text or 'RAC' in text or 'WL' in text:
-                if not result['status'] or len(text) < len(result['status']):
-                    result['status'] = text
-            
-            # Station codes (3-4 letter uppercase)
-            if text.isupper() and 3 <= len(text) <= 4 and text.isalpha():
-                if not result['station']:
-                    result['station'] = text
+        # Origin station
+        origin_match = re.search(r'([A-Za-z\s]+)\s*-\s*([A-Z]{3,4}),\s*\d{2}:\d{2}', page_text)
+        if origin_match:
+            result['origin_station'] = origin_match.group(1).strip()
+            result['origin_code'] = origin_match.group(2)
+        
+        # Destination station
+        dest_match = re.search(r'([A-Za-z\s]+Junction|[A-Za-z\s]+)\s*-\s*([A-Z]{3,4}),\s*\d{2}:\d{2}', page_text)
+        if dest_match:
+            matches = re.findall(r'([A-Za-z\s]+(?:Junction)?)\s*-\s*([A-Z]{3,4}),\s*\d{2}:\d{2}', page_text)
+            if len(matches) >= 2:
+                result['dest_station'] = matches[1][0].strip()
+                result['dest_code'] = matches[1][1]
+        
+        # Date
+        date_match = re.search(r'(Mon|Tue|Wed|Thu|Fri|Sat|Sun),\s*(\d{1,2}\s+[A-Za-z]{3})', page_text)
+        if date_match:
+            result['date'] = date_match.group(2)
+        
+        # Status, Coach, Seat
+        status_match = re.search(r'(CNF|RAC|WL)\s+([A-Z]\d+)\s+(\d+)', page_text)
+        if status_match:
+            result['status'] = status_match.group(1)
+            result['coach'] = status_match.group(2)
+            result['seat'] = status_match.group(3)
         
         return result
     finally:
@@ -60,7 +79,10 @@ if __name__ == "__main__":
     status = get_pnr_status(pnr)
     
     print(f"PNR: {status['pnr']}")
-    print(f"Train Number: {status['train_number']}")
-    print(f"Train Name: {status['train_name']}")
+    print(f"Train: {status['train_number']} - {status['train_name']}")
+    print(f"From: {status['origin_station']} ({status['origin_code']})")
+    print(f"To: {status['dest_station']} ({status['dest_code']})")
+    print(f"Date: {status['date']}")
     print(f"Status: {status['status']}")
-    print(f"Station: {status['station']}")
+    print(f"Coach: {status['coach']}")
+    print(f"Seat: {status['seat']}")
